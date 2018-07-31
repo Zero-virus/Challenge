@@ -5,12 +5,13 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/gorilla/mux"
 )
 
 type Test struct {
-	ID   string `json:"id"`
+	ID   int    `json:"id"`
 	Name string `json:"name"`
 }
 
@@ -28,41 +29,40 @@ type Test struct {
 
 func sendjson(c chan Test, w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	v := <-c
-	json.NewEncoder(w).Encode(v)
+	json.NewEncoder(w).Encode(<-c)
+	fmt.Println("salio")
 }
 
 func handler(w http.ResponseWriter, r *http.Request) {
 
-	//	var t Test
-	//	json.NewDecoder(r.Body).Decode(&t)
+	var c = make(chan Test, 2)
 
-	var c = make(chan Test)
-
-	t := []Test{
-		{
-			ID:   "daad",
-			Name: "bab",
-		},
-		{
-			ID:   "daa",
-			Name: "bb",
-		},
+	t := Test{
+		Name: "bab",
 	}
 
 	count := 0
 	go func() {
-		for _, n := range t {
+		for n := 0; n < 5; n++ {
 			count++
-			c <- n
+			t.ID = n
+			c <- t
+			fmt.Println("entro", n)
 
 		}
 		close(c)
 	}()
 	fmt.Println(len(c))
 
-	for d := 0; d < count; d++ {
-		go sendjson(c, w, r)
+	enviad := 0
+	for d := 0; d < 5; d++ {
+		sendjson(c, w, r)
+		enviad++
+		if enviad%2 == 0 {
+			fmt.Println("tuto wawa")
+			time.Sleep(time.Second * 10)
+			fmt.Println("Desperto")
+		}
 	}
 	/*
 		go func() {
@@ -74,7 +74,9 @@ func handler(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func receive()
+func receive(w http.ResponseWriter, r *http.Request) {
+
+}
 
 func main() {
 
