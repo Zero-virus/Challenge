@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -13,14 +14,14 @@ import (
 )
 
 type Card struct {
-	First_Name string `json:"first_name"`
-	Last_Name  string `json:"last_name"`
-	Email      string `json:"email"`
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
+	Email     string `json:"email"`
 }
 
 type Load struct {
-	Reference_id string  `json:"reference_id"`
-	Amount       float32 `json:"amount"`
+	ReferenceID string  `json:"reference_id"`
+	Amount      float32 `json:"amount"`
 }
 
 type Response struct {
@@ -34,14 +35,55 @@ type Response struct {
 	} `json:"data"`
 }
 
-func createCard(w http.ResponseWriter, r *http.Request) {
-
-	createqueue(r)
+type ResponseError struct {
+	Error struct {
+		Message string `json:"message"`
+	} `json:"error"`
 }
 
-func createqueue(r *http.Request) {
-	//var c = make(chan http.ResponseWriter, 2)
-	//	url := "https://fakeprovider.herokuapp.com"
+func createCard(w http.ResponseWriter, r *http.Request) {
+
+	var c = make(chan io.ReadCloser, 100)
+	url := "https://fakeprovider.herokuapp.com/cards"
+
+	go createqueue(r, c)
+	// decoder := json.NewDecoder(r.Body)
+	// var t Card
+
+	fmt.Println("llego aqui")
+
+	// err := decoder.Decode(&t)
+	// if err != nil {
+
+	// }
+	//json.NewEncoder(w).Encode(t)
+	// jsn, err := ioutil.ReadAll(r.Body)
+
+	resp, err := http.Post(url, "application/json", r.Body)
+	if err != nil {
+		fmt.Println("error", err)
+		return
+	} //else {
+	data, err := ioutil.ReadAll(resp.Body)
+	fmt.Println(string(data))
+	//}
+	//var resperr ResponseError
+	//json.Unmarshal(resp, &resperr)
+
+	fmt.Printf("%#v\n", resp)
+	sendjson(c, w, r, url)
+}
+
+func createqueue(r *http.Request, c chan io.ReadCloser) {
+
+	c <- r.Body
+	//count := 0
+
+	close(c)
+
+}
+
+func sendjson(c chan io.ReadCloser, w http.ResponseWriter, r *http.Request, url string) {
 
 }
 
