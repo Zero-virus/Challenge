@@ -46,45 +46,76 @@ func createCard(w http.ResponseWriter, r *http.Request) {
 	var c = make(chan io.ReadCloser, 100)
 	url := "https://fakeprovider.herokuapp.com/cards"
 
-	go createqueue(r, c)
-	// decoder := json.NewDecoder(r.Body)
-	// var t Card
+	n := r.Body
+	c <- n
+
+	var card Card
+	decoder := json.NewDecoder(r.Body)
+	err := decoder.Decode(&card)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(card)
+	go createqueue(c, url)
+
+	defer r.Body.Close()
 
 	fmt.Println("llego aqui")
 
-	// err := decoder.Decode(&t)
+	// resp, err := http.Post(url, "application/json", r.Body)
 	// if err != nil {
-
+	// 	fmt.Println("error", err)
+	// 	return
 	// }
-	//json.NewEncoder(w).Encode(t)
-	// jsn, err := ioutil.ReadAll(r.Body)
+	// data, err := ioutil.ReadAll(resp.Body)
+	// fmt.Println(string(data))
+	// fmt.Printf("%#v\n", resp)
+}
 
-	resp, err := http.Post(url, "application/json", r.Body)
+func loadCard(w http.ResponseWriter, r *http.Request) {
+
+	url := "https://fakeprovider.herokuapp.com/load"
+
+	resp, err := http.Post(url, "", r.Body)
 	if err != nil {
 		fmt.Println("error", err)
 		return
-	} //else {
+	}
 	data, err := ioutil.ReadAll(resp.Body)
 	fmt.Println(string(data))
-	//}
-	//var resperr ResponseError
-	//json.Unmarshal(resp, &resperr)
-
 	fmt.Printf("%#v\n", resp)
-	sendjson(c, w, r, url)
+
 }
 
-func createqueue(r *http.Request, c chan io.ReadCloser) {
-
-	c <- r.Body
-	//count := 0
+func createqueue(c chan io.ReadCloser, url string) {
 
 	close(c)
 
+	sendjson(c, url)
 }
 
-func sendjson(c chan io.ReadCloser, w http.ResponseWriter, r *http.Request, url string) {
+func sendjson(c chan io.ReadCloser, url string) {
+	d := <-c
 
+	var card Card
+	decoder := json.NewDecoder(d)
+	err := decoder.Decode(&card)
+	if err != nil {
+		fmt.Println(err)
+		panic(err)
+	}
+
+	fmt.Println(card)
+
+	resp, err := http.Post(url, "application/json", d)
+	if err != nil {
+		fmt.Println("error", err)
+		return
+	}
+	data, err := ioutil.ReadAll(resp.Body)
+	fmt.Println(string(data))
+	fmt.Printf("%#v\n", resp)
 }
 
 func getCard(w http.ResponseWriter, r *http.Request) {
@@ -103,9 +134,9 @@ func getCard(w http.ResponseWriter, r *http.Request) {
 	var responseObj Response
 	json.Unmarshal(responseData, &responseObj)
 	fmt.Println(responseObj)
-}
-
-func loadCard(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(responseObj)
+	fmt.Println("salio")
 
 }
 
