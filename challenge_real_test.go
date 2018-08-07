@@ -11,11 +11,10 @@ import (
 func TestCreateHandler(t *testing.T) {
 	b := []byte(`
 		{
-			"first_name": "da",
-			"last_name": "da",
-			"email": "da"
-		}
-	`)
+			"first_name": "primero",
+			"last_name": "uno",
+			"email": "1"
+		}`)
 	req, err := http.NewRequest("POST", "/cards", bytes.NewReader(b))
 	if err != nil {
 		t.Error(err)
