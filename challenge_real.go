@@ -7,10 +7,15 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"sync/atomic"
 	"time"
 
 	"github.com/gorilla/mux"
 )
+
+var get_count uint64
+var create_count uint64
+var load_count uint64
 
 type Card struct {
 	FirstName string `json:"first_name"`
@@ -40,21 +45,57 @@ type ResponseError struct {
 	} `json:"error"`
 }
 
+type Fail struct {
+	Message []byte
+	Intent  int
+}
+
+func Newfail(message []byte) Fail {
+
+	fail := Fail{}
+	fail.Message = message
+	fail.Intent = 0
+	return fail
+}
+
+func Fooget() {
+	atomic.AddUint64(&get_count, 1)
+	fmt.Println("+1!!!!!")
+}
+func Foocreate() {
+	atomic.AddUint64(&create_count, 1)
+	fmt.Println("+1!!!!!")
+}
+func Fooload() {
+	atomic.AddUint64(&load_count, 1)
+}
+
+var create = make(chan Fail, 100)
+var load = make(chan Fail, 100)
+var get = make(chan Fail, 100)
+
+var getchan = make(chan string, 2)
+
 func createCard(w http.ResponseWriter, r *http.Request) {
 
 	url := "https://fakeprovider.herokuapp.com/cards"
-
-	//n := r.Body
-	//	c <- n
-	count := 0
-	var card Card
 
 	body, readErr := ioutil.ReadAll(r.Body)
 	if readErr != nil {
 		log.Fatal(readErr)
 	}
-	fmt.Println(card)
-	go createqueue(body, url, count, "card")
+
+	fail := Newfail(body)
+
+	create <- fail
+	Foocreate()
+	fmt.Println(create_count)
+	if create_count%2 == 0 && create_count != 0 {
+		fmt.Println("tuto wawa")
+		time.Sleep(time.Second * 10)
+		fmt.Println("Desperto")
+	}
+	go sendjson(create, url, "card")
 
 	defer r.Body.Close()
 
@@ -64,39 +105,33 @@ func loadCard(w http.ResponseWriter, r *http.Request) {
 
 	url := "https://fakeprovider.herokuapp.com/load"
 
-	count := 0
-
 	body, readErr := ioutil.ReadAll(r.Body)
 	if readErr != nil {
 		log.Fatal(readErr)
 	}
-	go createqueue(body, url, count, "load")
+
+	fail := Newfail(body)
+
+	load <- fail
+	Fooload()
+	fmt.Println(load_count)
+	if load_count%2 == 0 && load_count != 0 {
+		fmt.Println("tuto wawa")
+		time.Sleep(time.Second * 10)
+		fmt.Println("Desperto")
+	}
+	go sendjson(load, url, "load")
 
 	defer r.Body.Close()
 
 }
 
-func createqueue(b []byte, url string, count int, action string) {
-	var c = make(chan []byte, 100)
-	//count := 0
-	c <- b
-	close(c)
+func sendjson(c chan Fail, url string, action string) {
 
-	fmt.Println(count)
-
-	if count%2 == 0 {
-		fmt.Println("tuto wawa")
-		time.Sleep(time.Second * 10)
-		fmt.Println("Desperto")
-	}
-	sendjson(c, url, action)
-}
-
-func sendjson(c chan []byte, url string, action string) {
 	d := <-c
 
 	if action == "card" {
-		req, err := http.NewRequest("POST", url, bytes.NewBuffer(d))
+		req, err := http.NewRequest("POST", url, bytes.NewBuffer(d.Message))
 		req.Header.Set("Content-Type", "application/json")
 
 		client := &http.Client{}
@@ -105,11 +140,26 @@ func sendjson(c chan []byte, url string, action string) {
 			panic(err)
 		}
 		fmt.Println("response Status:", resp.Status)
-		errorHandler(resp.Status, d)
+		errorHandler(resp.Status, d, action)
 		fmt.Printf("%#v\n", resp)
 
 	} else if action == "get" {
-		req, err := http.Get(url)
+
+		getchan <- url
+		holder := make(chan string, 100)
+
+		Fooget()
+		fmt.Println(get_count)
+
+		if get_count%2 == 0 && get_count != 0 {
+			fmt.Println("tuto wawa")
+			time.Sleep(time.Second * 10)
+			fmt.Println("Desperto")
+		}
+
+		holder <- getchan
+
+		req, err := http.Get(holder)
 		if err != nil {
 			log.Print(err.Error())
 			os.Exit(1)
@@ -117,6 +167,7 @@ func sendjson(c chan []byte, url string, action string) {
 
 		fmt.Println("response Status:", req.Status)
 		fmt.Println("salio")
+		errorHandler(req.Status, holder, action)
 		responseData, err := ioutil.ReadAll(req.Body)
 		if err != nil {
 			log.Fatal(err)
@@ -124,7 +175,7 @@ func sendjson(c chan []byte, url string, action string) {
 
 		fmt.Println(string(responseData))
 	} else if action == "load" {
-		req, err := http.NewRequest("POST", url, bytes.NewBuffer(d))
+		req, err := http.NewRequest("POST", url, bytes.NewBuffer(d.Message))
 		req.Header.Set("Authorization", "Bearer fasdfadfa9fj987afsdf")
 		req.Header.Set("Cache-Control", "no-cache")
 		req.Header.Set("Content-Type", "application/json")
@@ -135,37 +186,90 @@ func sendjson(c chan []byte, url string, action string) {
 			panic(err)
 		}
 		fmt.Println("response Status:", resp.Status)
-		errorHandler(resp.Status, d)
+		errorHandler(resp.Status, d, action)
 		fmt.Printf("%#v\n", resp)
 	}
 
 }
 
 func getCard(w http.ResponseWriter, r *http.Request) {
+
 	url := "https://fakeprovider.herokuapp.com/"
-	count := 0
-	go createqueue(nil, url, count, "get")
+
+	fail := Newfail(nil)
+
+	get <- fail
+	fmt.Println("entro a la cola")
+
+	go sendjson(get, url, "get")
 
 }
 
-func errorHandler(err string, p []byte) {
+func errorHandler(err string, p Fail, action string) {
 
-	var e chan []byte
+	if p.Intent >= 5 {
+		fmt.Println("a fallado muchas veces")
 
-	switch {
-	case err == "500 Internal Server Error":
-		e <- p
+	} else if action == "get" {
+		switch {
+		case err == "500 Internal Server Error":
+			p.Intent++
+			get <- p
+			go sendjson(get, "https://fakeprovider.herokuapp.com/", "get")
 
-	case err == "400 Bad Request":
+		case err == "400 Bad Request":
 
-	case err == "404 Not Found":
-		e <- p
-	case err == "401 Unauthorized":
+		case err == "404 Not Found":
+			p.Intent++
+			get <- p
+			go sendjson(get, "https://fakeprovider.herokuapp.com/", "get")
 
-	case err == "429 Too Many Request":
-		e <- p
+		case err == "401 Unauthorized":
 
+		case err == "429 Too Many Request":
+			p.Intent++
+			get <- p
+			go sendjson(get, "https://fakeprovider.herokuapp.com/", "get")
+
+		}
+	} else if action == "card" {
+		switch {
+		case err == "500 Internal Server Error":
+			p.Intent++
+			create <- p
+
+		case err == "400 Bad Request":
+
+		case err == "404 Not Found":
+			p.Intent++
+			create <- p
+		case err == "401 Unauthorized":
+
+		case err == "429 Too Many Request":
+			p.Intent++
+			create <- p
+
+		}
+	} else if action == "load" {
+		switch {
+		case err == "500 Internal Server Error":
+			p.Intent++
+			create <- p
+
+		case err == "400 Bad Request":
+
+		case err == "404 Not Found":
+			p.Intent++
+			create <- p
+		case err == "401 Unauthorized":
+
+		case err == "429 Too Many Request":
+			p.Intent++
+			create <- p
+
+		}
 	}
+
 }
 
 func main() {
