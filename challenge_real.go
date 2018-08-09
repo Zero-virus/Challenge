@@ -157,9 +157,9 @@ func sendjson(c chan Fail, url string, action string) {
 			fmt.Println("Desperto")
 		}
 
-		holder <- getchan
+		holder <- url
 
-		req, err := http.Get(holder)
+		req, err := http.Get(<-getchan)
 		if err != nil {
 			log.Print(err.Error())
 			os.Exit(1)
@@ -167,7 +167,7 @@ func sendjson(c chan Fail, url string, action string) {
 
 		fmt.Println("response Status:", req.Status)
 		fmt.Println("salio")
-		errorHandler(req.Status, holder, action)
+		errorHandler(req.Status, <-c, action)
 		responseData, err := ioutil.ReadAll(req.Body)
 		if err != nil {
 			log.Fatal(err)
