@@ -145,9 +145,6 @@ func sendjson(c chan Fail, url string, action string) {
 
 	} else if action == "get" {
 
-		getchan <- url
-		holder := make(chan string, 100)
-
 		Fooget()
 		fmt.Println(get_count)
 
@@ -157,9 +154,7 @@ func sendjson(c chan Fail, url string, action string) {
 			fmt.Println("Desperto")
 		}
 
-		holder <- url
-
-		req, err := http.Get(<-getchan)
+		req, err := http.Get(url)
 		if err != nil {
 			log.Print(err.Error())
 			os.Exit(1)
