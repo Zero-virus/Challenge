@@ -201,7 +201,8 @@ func getCard(w http.ResponseWriter, r *http.Request) {
 }
 
 func errorHandler(err string, p Fail, action string) {
-
+	fmt.Println("que sale en el error")
+	fmt.Println(p.Intent)
 	if p.Intent >= 5 {
 		fmt.Println("a fallado muchas veces")
 
@@ -221,7 +222,9 @@ func errorHandler(err string, p Fail, action string) {
 
 		case err == "401 Unauthorized":
 
-		case err == "429 Too Many Request":
+		case err == "429 Too Many Requests":
+
+			fmt.Println("SE ENCONTRO UN ERROROROROROROR")
 			p.Intent++
 			get <- p
 			go sendjson(get, "https://fakeprovider.herokuapp.com/", "get")
@@ -240,7 +243,7 @@ func errorHandler(err string, p Fail, action string) {
 			create <- p
 		case err == "401 Unauthorized":
 
-		case err == "429 Too Many Request":
+		case err == "429 Too Many Requests":
 			p.Intent++
 			create <- p
 
@@ -258,7 +261,7 @@ func errorHandler(err string, p Fail, action string) {
 			create <- p
 		case err == "401 Unauthorized":
 
-		case err == "429 Too Many Request":
+		case err == "429 Too Many Requests":
 			p.Intent++
 			create <- p
 
